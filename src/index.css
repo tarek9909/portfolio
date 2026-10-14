@@ -34,6 +34,15 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
 .tbtns{display:flex;gap:6px}
 .tbtn{font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:9px 12px;border:1px solid var(--line);background:rgba(5,7,12,.5);transition:border-color .3s,color .3s}
 .tbtn:hover{border-color:var(--amber);color:var(--amber)}
+.board{position:absolute;inset:0;z-index:20;background:rgba(4,6,10,.72);backdrop-filter:blur(3px);display:grid;place-items:center;overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 24px) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));animation:fade .3s var(--ease)}
+.item.boardin{box-sizing:border-box;position:relative;width:min(560px,100%);padding:58px 24px 20px;background:var(--glass);animation:rise .45s var(--ease) both}
+.item.boardin:hover{transform:none;box-shadow:none;border-color:var(--line)}
+.boardin::before{content:"";position:absolute;left:0;top:0;height:2px;width:100%;background:var(--acc);box-shadow:0 0 14px var(--acc)}
+.item.boardin h3{font-size:clamp(22px,3vw,30px)}
+.boardin .cnav{margin-top:18px;align-items:center}
+.boardin .cnav .go{margin:0;padding:0}
+.bclose{position:absolute;right:14px;top:12px}
+.nogl{color:var(--mute);font-size:14px;margin:0 0 22px}
 
 .hero{position:absolute;left:0;bottom:22vh;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:760px;transition:opacity .8s var(--ease),transform .8s var(--ease);z-index:3}
 .hero.off{opacity:0;transform:translateY(16px);pointer-events:none}
@@ -56,7 +65,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
 .rail button.on .mono{color:var(--amber)}
 .rail button.on span:last-child{position:relative}
 
-.card{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);width:min(390px,calc(100vw - 32px));max-height:calc(100% - 220px);overflow:auto;background:var(--glass);border:1px solid var(--line);padding:22px 22px 20px;z-index:4;animation:cardIn .7s var(--ease) both;transition:opacity .5s}
+.card{box-sizing:border-box;position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);width:min(390px,calc(100vw - 32px));max-height:calc(100% - 220px);overflow:auto;background:var(--glass);border:1px solid var(--line);padding:22px 22px 20px;z-index:4;animation:cardIn .7s var(--ease) both;transition:opacity .5s}
 .card.off{opacity:0!important;pointer-events:none}
 @keyframes cardIn{from{opacity:0;transform:translate(24px,-50%)}to{opacity:1;transform:translate(0,-50%)}}
 .chead{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
@@ -226,9 +235,11 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
 .loader.done .lin{transform:scale(1.15);opacity:0;filter:blur(6px);transition:all 1s var(--ease)}
 
 @media (max-width:980px){.rail{display:none}}
-@media (max-width:480px){.gear{display:none}.toast{font-size:10px;letter-spacing:.14em}}
+@media (max-width:480px){.gear{display:none}.brand b{display:none}.toast{font-size:10px;letter-spacing:.14em}}
 @media (max-width:760px){
   .brand span{display:none}
+  .tbtn .qlbl{display:none}
+  .tbtns{gap:4px}.tbtn{padding:9px 9px;letter-spacing:.1em}
   .hero{bottom:auto;top:18vh}
   .card{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:none;max-height:40vh;padding:16px;animation:cardUp .6s var(--ease) both}
   @keyframes cardUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}

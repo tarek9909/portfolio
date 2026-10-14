@@ -7,30 +7,38 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { DATA, KIND, N, pad } from "./data.js";
-import { SECTIONS, COURSE, TURNS, GANTRIES, CROSSINGS, STOPS, STOP_SIDE, END_S as END, ROAD_S0, ROAD_S1, nearestStop, stopAtOrBefore, stopAtOrAfter } from "./course.js";
+import { SECTIONS, COURSE, TURNS, GANTRIES, CROSSINGS, STOPS, END_S as END, ROAD_S0, ROAD_S1, nearestStop, stopAtOrBefore, stopAtOrAfter } from "./course.js";
 
 const THREE = { ...THREE_CORE, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, BufferGeometryUtils };
 
-export function createEngine(host, onState, onProgress, onReady){
+export function createEngine(host, onState, onProgress, onReady, opts={}){
   const T = THREE;
   const Lc = hex => new T.Color(hex).convertSRGBToLinear();
   const W0 = () => host.clientWidth || innerWidth, H0 = () => host.clientHeight || innerHeight;
   const small = Math.min(innerWidth, innerHeight) < 700;
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(opts.tier==="none") throw new Error("no hardware WebGL");
+  // LOW (integrated / mobile GPUs): no bloom, no real lamp or headlight lights, no clearcoat,
+  // lighter rain and fireworks, lower resolution. The look leans on the additive fakes that are already there.
+  const LOW = opts.tier==="low";
 
-  const renderer = new T.WebGLRenderer({antialias:false, powerPreference:"high-performance", stencil:false});
+  const renderer = new T.WebGLRenderer({antialias:false, powerPreference:LOW?"default":"high-performance", stencil:false});
   // render resolution adapts to the frame rate (see "Adaptive resolution" in the loop)
-  const QMAX = Math.min(window.devicePixelRatio || 1, 1.25), QMIN = 0.6;
-  let PR = Math.min(QMAX, small ? 0.75 : 1);
+  // start sharp (native pixels, up to 2x on high) and only step down if frames are slow: blur is the
+  // most visible cost, so the low tier sheds effects first and keeps resolution near native
+  const DPR = window.devicePixelRatio || 1, QMAX = Math.min(DPR, LOW ? 1 : 2), QMIN = Math.min(QMAX, 0.75);
+  let PR = QMAX;
   renderer.setPixelRatio(PR);
   renderer.setSize(W0(), H0());
   renderer.outputEncoding = T.LinearEncoding;
   renderer.toneMapping = T.NoToneMapping;
   host.appendChild(renderer.domElement);
-  const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const maxAniso = Math.min(LOW ? 4 : 8, renderer.capabilities.getMaxAnisotropy());
 
   const scene = new T.Scene();
   const FOG = Lc("#141c33"), FOG_D = 0.0058;
+  // catalogue billboards: overhead, this far past their stop, bottom edge high enough to clear traffic
+  const BB_W=12, BB_H=6.75, BB_AHEAD=14, BB_Y=5.8;
   scene.fog = new T.FogExp2(FOG, FOG_D);
   const camera = new T.PerspectiveCamera(40, W0()/H0(), 0.1, 3200);
 
@@ -303,7 +311,9 @@ export function createEngine(host, onState, onProgress, onReady){
 
   /* Street lights: sodium heads, light pools, recycled dynamic lights */
   const LAMP_GAP=34, lamps=[];
-  for(let z=60; z>-(END+690); z-=LAMP_GAP){ lamps.push([1,z,inGap(-z,1,LINK_W/2+2)]); lamps.push([-1,z-LAMP_GAP/2,inGap(LAMP_GAP/2-z,-1,LINK_W/2+2)]); }
+  // lamp arms reach over the road at the billboards' height, so lamps beside a billboard are left out
+  const atBoard=s=>STOPS.some(b=>Math.abs(s-b-BB_AHEAD)<7);
+  for(let z=60; z>-(END+690); z-=LAMP_GAP){ lamps.push([1,z,inGap(-z,1,LINK_W/2+2)||atBoard(-z)]); lamps.push([-1,z-LAMP_GAP/2,inGap(LAMP_GAP/2-z,-1,LINK_W/2+2)||atBoard(LAMP_GAP/2-z)]); }
   {
     const n=lamps.length, d=new T.Object3D();
     const poles=new T.InstancedMesh(new T.CylinderGeometry(0.08,0.14,8.6,8).translate(0,4.3,0), darkMetal, n);
@@ -321,7 +331,7 @@ export function createEngine(host, onState, onProgress, onReady){
     });
     scene.add(poles,arms,heads,pools);
   }
-  const dyn=[]; for(let i=0;i<2;i++){ const p=new T.PointLight(Lc("#ffae5a"), 4.2, 26, 2); scene.add(p); dyn.push(p); }
+  const dyn=[]; for(let i=0;i<(LOW?0:2);i++){ const p=new T.PointLight(Lc("#ffae5a"), 4.2, 26, 2); scene.add(p); dyn.push(p); }
 
   /* Palms along the corniche */
   {
@@ -333,8 +343,8 @@ export function createEngine(host, onState, onProgress, onReady){
       g.rotateY(k*Math.PI*2/10+Math.random()*0.3); g.rotateZ(0); fr.push(g);
     }
     const frondG=T.BufferGeometryUtils.mergeBufferGeometries(fr); frondG.computeVertexNormals();
-    // no palms in junctions, or in front of billboards standing on the sea side
-    const blocksBoard=s=>STOPS.some((b,i)=>STOP_SIDE[i]<0&&Math.abs(s-b-14)<10)||TURNS.some(t=>t.side<0&&Math.abs(s-t.s0+BOARD_LEAD)<14);
+    // no palms in junctions, under the billboards, or in front of section boards on the sea side
+    const blocksBoard=s=>STOPS.some(b=>Math.abs(s-b-BB_AHEAD)<10)||TURNS.some(t=>t.side<0&&Math.abs(s-t.s0+BOARD_LEAD)<14);
     const zs=[]; for(let z=40; z>-(END+690); z-=15) if(!inGap(-z,-1,LINK_W/2+3)&&!blocksBoard(-z)) zs.push(z);
     const trunks=new T.InstancedMesh(trunkG,new T.MeshStandardMaterial({color:Lc("#2d241b"),roughness:0.95}),zs.length);
     const fronds=new T.InstancedMesh(frondG,new T.MeshStandardMaterial({color:Lc("#1d3324"),roughness:0.8,side:T.DoubleSide}),zs.length);
@@ -382,8 +392,10 @@ export function createEngine(host, onState, onProgress, onReady){
   /* The car: procedural coupé */
   const car = new T.Group(); car.userData.dyn=true; scene.add(car);
   const body = new T.Group(); car.add(body);
-  const paint = new T.MeshPhysicalMaterial({color:Lc("#c3c7cf"), metalness:0.82, roughness:0.27, clearcoat:1, clearcoatRoughness:0.03, envMapIntensity:1.6});
-  const glass = new T.MeshPhysicalMaterial({color:Lc("#050608"), metalness:0.9, roughness:0.04, clearcoat:1, envMapIntensity:1.8});
+  // clearcoat roughly doubles the shading cost, so the low tier gets plain standard paint and glass
+  const Coat = LOW ? T.MeshStandardMaterial : T.MeshPhysicalMaterial, coat = o => { if(LOW){ delete o.clearcoat; delete o.clearcoatRoughness; } return new Coat(o); };
+  const paint = coat({color:Lc("#c3c7cf"), metalness:0.82, roughness:LOW?0.22:0.27, clearcoat:1, clearcoatRoughness:0.03, envMapIntensity:1.6});
+  const glass = coat({color:Lc("#050608"), metalness:0.9, roughness:0.04, clearcoat:1, envMapIntensity:1.8});
   const blackTrim = new T.MeshStandardMaterial({color:Lc("#0b0c0f"), roughness:0.5, metalness:0.3});
   const hlM=new T.MeshBasicMaterial({color:new T.Color(0,0,0)});
   const tlM=new T.MeshBasicMaterial({color:new T.Color().setRGB(9,0.35,0.25)});
@@ -434,7 +446,7 @@ export function createEngine(host, onState, onProgress, onReady){
   {
     const sh=new T.Mesh(new T.PlaneGeometry(5.8,2.8).rotateX(-Math.PI/2), new T.MeshBasicMaterial({map:radialTex([[0,"rgba(0,0,0,.85)"],[0.55,"rgba(0,0,0,.45)"],[1,"rgba(0,0,0,0)"]]), transparent:true, depthWrite:false}));
     sh.position.y=0.02; sh.name="procShadow"; car.add(sh);
-    spot=new T.SpotLight(Lc("#eaf1ff"), 0, 70, 0.42, 0.55, 1.1); spot.position.set(2.2,0.66,0); car.add(spot);
+    spot=new T.SpotLight(Lc("#eaf1ff"), 0, 70, 0.42, 0.55, 1.1); spot.position.set(2.2,0.66,0); if(!LOW) car.add(spot);   // low tier: the light cones carry the headlights
     const tgt=new T.Object3D(); tgt.position.set(26,-1.2,0); car.add(tgt); spot.target=tgt;
     // tail-light glow on the road: an additive decal rather than a real light
     red=new T.Mesh(new T.PlaneGeometry(3.4,3).rotateX(-Math.PI/2), new T.MeshBasicMaterial({map:radialTex([[0,"rgba(255,255,255,1)"],[1,"rgba(0,0,0,0)"]],64), color:new T.Color().setRGB(0.5,0.05,0.03), transparent:true, blending:T.AdditiveBlending, depthWrite:false}));
@@ -459,7 +471,7 @@ export function createEngine(host, onState, onProgress, onReady){
     loader.load(BASE+"models/ferrari-lite.glb", gltf=>{
       const m=gltf.scene.children[0];
       const detail=new T.MeshStandardMaterial({color:0xffffff, metalness:1, roughness:0.4, envMapIntensity:1.4});
-      const glassM=new T.MeshPhysicalMaterial({color:0x1b2029, metalness:0.2, roughness:0, clearcoat:1, transparent:true, opacity:0.38, envMapIntensity:2});
+      const glassM=coat({color:0x1b2029, metalness:0.2, roughness:0, clearcoat:1, transparent:true, opacity:0.38, envMapIntensity:2});
       const set=(name,mat)=>{ const o=m.getObjectByName(name); if(o) o.material=mat; };
       set("body",paint); set("glass",glassM); set("lights",hlM); set("leds",hlM); set("lights_red",tlM);
       ["rim_fl","rim_fr","rim_rr","rim_rl","trim"].forEach(n=>set(n,detail));
@@ -599,7 +611,7 @@ export function createEngine(host, onState, onProgress, onReady){
   /* Rain: drops fall from the sky in a box that travels with the camera. They're drawn as short
      streaks along their motion relative to the camera, so they slant when the car is moving,
      and they burst into small splashes when they hit the ground. */
-  const RN=small?500:1100, RBOX=38, RTOP=22, WIND_X=2.4, WIND_Z=0.9, SPLASH=small?100:200;
+  const RN=LOW?(small?260:450):small?500:1100, RBOX=38, RTOP=22, WIND_X=2.4, WIND_Z=0.9, SPLASH=LOW?60:small?100:200;
   const rPos=new Float32Array(RN*6), drops=[];
   const rGeo=new T.BufferGeometry(); rGeo.setAttribute("position",new T.BufferAttribute(rPos,3));
   const rain=new T.LineSegments(rGeo,new T.LineBasicMaterial({color:new T.Color().setRGB(0.5,0.58,0.75), transparent:true, opacity:0.34, depthWrite:false}));
@@ -611,13 +623,13 @@ export function createEngine(host, onState, onProgress, onReady){
   const sA=new T.Vector3(), sB=new T.Vector3(), rainCam=new T.Vector3(), rainCamPrev=new T.Vector3();
   const reseed=(d,cx,cz,top)=>{ d.x=cx+(Math.random()-0.5)*2*RBOX; d.z=cz+(Math.random()-0.5)*2*RBOX; d.y=top?RTOP+Math.random()*6:Math.random()*RTOP; d.v=22+Math.random()*9; return d; };
   for(let q=0;q<RN;q++) drops.push(reseed({},0,0,false));
-  let rainReady=false;
+  let rainReady=false, rainN=RN;
   function updateRain(dt,cam){
     if(!rainReady){ drops.forEach(d=>reseed(d,cam.x,cam.z,false)); rainCamPrev.copy(cam); rainReady=true; }
     // the camera's own velocity, so streaks slant the way rain does from a moving car
     rainCam.copy(cam).sub(rainCamPrev).divideScalar(Math.max(dt,1e-4)); rainCamPrev.copy(cam);
     const k=0.026, cvx=Math.max(-22,Math.min(22,rainCam.x)), cvz=Math.max(-22,Math.min(22,rainCam.z));   // capped, so it always reads as falling
-    for(let q=0;q<RN;q++){ const d=drops[q];
+    for(let q=0;q<rainN;q++){ const d=drops[q];
       d.x+=WIND_X*dt; d.z+=WIND_Z*dt; d.y-=d.v*dt;
       if(d.y<0){
         const i=spHead; spHead=(spHead+1)%SPLASH; spPos[i*3]=d.x; spPos[i*3+1]=0.06; spPos[i*3+2]=d.z; spLife[i]=0.22;
@@ -635,7 +647,7 @@ export function createEngine(host, onState, onProgress, onReady){
   }
 
   /* Fireworks over the city when you reach the last stop */
-  const FW=small?1200:2400, fwPos=new Float32Array(FW*3), fwVel=new Float32Array(FW*3), fwCol=new Float32Array(FW*3), fwBase=new Float32Array(FW*3), fwLife=new Float32Array(FW);
+  const FW=LOW?(small?600:900):small?1200:2400, fwPos=new Float32Array(FW*3), fwVel=new Float32Array(FW*3), fwCol=new Float32Array(FW*3), fwBase=new Float32Array(FW*3), fwLife=new Float32Array(FW);
   let fwHead=0, fwNext=0.4;
   const fwGeo=new T.BufferGeometry(); fwGeo.setAttribute("position",new T.BufferAttribute(fwPos,3)); fwGeo.setAttribute("color",new T.BufferAttribute(fwCol,3));
   const fireworks=new T.Points(fwGeo,new T.PointsMaterial({size:2.8, map:dotTex, vertexColors:true, transparent:true, blending:T.AdditiveBlending, depthWrite:false, fog:false}));
@@ -822,25 +834,28 @@ export function createEngine(host, onState, onProgress, onReady){
     });
   }
 
-  /* Billboards (the catalogue) */
-  const panels=[];
+  /* Billboards (the catalogue): overhead signs spanning the road a little past each stop,
+     facing the approaching car, built like the section gantries. Click one to open it. */
+  const panels=[], panelMeshes=[];
   const bbGroup=new T.Group(); scene.add(bbGroup);
-  const BB_W=12, BB_H=6.75, BB_X=17.5, BB_ROT=Math.atan2(-1,0.36);
-  DATA.forEach((it,i)=>{
-    // inside its U-turn (mirrored for left turns), angled to face the approaching car
-    const sd=STOP_SIDE[i], g=new T.Group(); placeOnRoad(g,sd*BB_X,0,-STOPS[i]-14,sd*BB_ROT); bbGroup.add(g);
-    const postG=new T.CylinderGeometry(0.16,0.2,4.6,10).translate(0,0.5,0);   // reaches below the waterline for boards standing in the sea
-    [-4,4].forEach(x=>{ const p=new T.Mesh(postG,darkMetal); p.position.set(x,0,-0.1); g.add(p); });
-    const fr=new T.Mesh(new T.BoxGeometry(BB_W+0.5,BB_H+0.5,0.4),darkMetal); fr.position.set(0,2.6+BB_H/2,-0.2); g.add(fr);
-    const mat=new T.MeshBasicMaterial({color:new T.Color().setScalar(0.7)});
-    const sweep={value:-1};
-    mat.onBeforeCompile=sh=>{ sh.uniforms.uSweep=sweep;
-      sh.fragmentShader="uniform float uSweep;\n"+sh.fragmentShader.replace("#include <map_fragment>",
-        "#include <map_fragment>\n float sw=smoothstep(0.07,0.0,abs(vUv.x+vUv.y*0.3-uSweep)); diffuseColor.rgb+=diffuseColor.rgb*sw*1.8+vec3(0.06,0.065,0.08)*sw;"); };
-    const pnl=new T.Mesh(new T.PlaneGeometry(BB_W,BB_H),mat); pnl.position.set(0,2.6+BB_H/2,0.01); g.add(pnl);
-    const lip=new T.Mesh(new T.BoxGeometry(BB_W,0.06,0.08),new T.MeshBasicMaterial({color:new T.Color().setRGB(2.6,2.4,2.2)})); lip.position.set(0,2.45,0.1); g.add(lip);
-    panels.push({mat, glow:0, flick:0, sweep, lip:lip.material});
-  });
+  {
+    const PY=BB_Y+BB_H/2, top=BB_Y+BB_H+0.6;
+    const postG=new T.BoxGeometry(0.35,top,0.35).translate(0,top/2,0);
+    DATA.forEach((it,i)=>{
+      const g=new T.Group(); placeOnRoad(g,0,0,-STOPS[i]-BB_AHEAD); bbGroup.add(g);
+      [-12.7,12.3].forEach(x=>{ const p=new T.Mesh(postG,darkMetal); p.position.x=x; g.add(p); });
+      const beam=new T.Mesh(new T.BoxGeometry(25.4,0.5,0.5),darkMetal); beam.position.set(-0.2,top-0.25,-0.2); g.add(beam);
+      const fr=new T.Mesh(new T.BoxGeometry(BB_W+0.5,BB_H+0.5,0.4),darkMetal); fr.position.set(0,PY,-0.2); g.add(fr);
+      const mat=new T.MeshBasicMaterial({color:new T.Color().setScalar(0.7)});
+      const sweep={value:-1};
+      mat.onBeforeCompile=sh=>{ sh.uniforms.uSweep=sweep;
+        sh.fragmentShader="uniform float uSweep;\n"+sh.fragmentShader.replace("#include <map_fragment>",
+          "#include <map_fragment>\n float sw=smoothstep(0.07,0.0,abs(vUv.x+vUv.y*0.3-uSweep)); diffuseColor.rgb+=diffuseColor.rgb*sw*1.8+vec3(0.06,0.065,0.08)*sw;"); };
+      const pnl=new T.Mesh(new T.PlaneGeometry(BB_W,BB_H),mat); pnl.position.set(0,PY,0.01); pnl.userData.stop=i; g.add(pnl); panelMeshes.push(pnl);
+      const lip=new T.Mesh(new T.BoxGeometry(BB_W,0.06,0.08),new T.MeshBasicMaterial({color:new T.Color().setRGB(2.6,2.4,2.2)})); lip.position.set(0,BB_Y-0.15,0.1); g.add(lip);
+      panels.push({mat, glow:0, flick:0, sweep, lip:lip.material});
+    });
+  }
 
   function wrapText(g,text,maxW){ const out=[]; let line=""; text.split(" ").forEach(w=>{ const t=line?line+" "+w:w; if(g.measureText(t).width>maxW && line){ out.push(line); line=w; } else line=t; }); if(line) out.push(line); return out; }
   function hexA(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`; }
@@ -977,7 +992,19 @@ export function createEngine(host, onState, onProgress, onReady){
   composer.addPass(new T.RenderPass(scene,camera));
   const bloom=new T.UnrealBloomPass(new T.Vector2(W0(),H0()),0.85,0.6,0.92);
   { const set=bloom.setSize.bind(bloom); bloom.setSize=(w,h)=>set(Math.max(64,w*0.5),Math.max(64,h*0.5)); }   // bloom works at a quarter of the pixels
-  composer.addPass(bloom);
+  let bloomOn=!LOW; if(bloomOn) composer.addPass(bloom);
+  let degraded=LOW;
+  /** Shed the expensive extras, one step per call: bloom first, then the real lights and half the rain.
+      Returns false once there is nothing left to drop. */
+  function degrade(){
+    if(bloomOn){ bloomOn=false; composer.removePass(bloom); bloom.dispose(); return true; }
+    if(!degraded){ degraded=true;
+      dyn.forEach(L=>{ L.visible=false; }); dyn.length=0;
+      car.remove(spot);   // the light cones carry the headlights, as on the low tier
+      rainN=Math.round(RN/2); rGeo.setDrawRange(0,rainN*2);
+      return true; }
+    return false;
+  }
   const grade=new T.ShaderPass({
     uniforms:{tDiffuse:{value:null}, uTime:{value:0}, uRes:{value:new T.Vector2(W0(),H0())}, uExp:{value:1.5}, uSpeed:{value:0}},
     vertexShader:"varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }",
@@ -1000,10 +1027,12 @@ export function createEngine(host, onState, onProgress, onReady){
   /* Camera choreography: a shot per catalogue stop */
   const SHOT={
     hero:{p:[5.4,1.15,-8.6], l:[0,0.75,0]},
-    side:{p:[-7.6,1.05,2.4], l:[2.2,2.1,-6.5]},
-    chase:{p:[-1.4,3.1,10.5], l:[2.6,1.9,-14]},
-    low:{p:[5.2,0.55,7.2], l:[1.4,1.6,-16]},
-    crane:{p:[-6.5,7.5,15], l:[4,2.4,-16]}
+    // the rest look ahead up the road at the overhead billboard (BB_AHEAD on, above the lanes),
+    // aimed a little right of it so the board sits left of the info card
+    side:{p:[-3.2,2.4,11.5], l:[3.2,5.4,-14]},
+    chase:{p:[-1.0,3.4,14], l:[3.0,5.0,-14]},
+    low:{p:[1.8,1.0,11], l:[2.2,6.0,-14]},
+    crane:{p:[-5.5,8.5,19], l:[3,4.8,-14]}
   };
   const SEQ=["hero","side","chase","low","side","chase","low","side","chase","low","side","chase","crane"];
   const DRIVE_CAM={p:[0,3.3,11.5], l:[0,1.4,-16]};
@@ -1055,15 +1084,25 @@ export function createEngine(host, onState, onProgress, onReady){
   const onResize=()=>{ const w=W0(),h=H0(); camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); composer.setSize(w,h); grade.uniforms.uRes.value.set(w,h); };
   addEventListener("resize",onResize);
   let pmxT=0, pmyT=0, pmx=0, pmy=0;
-  const onPM=e=>{ if(e.pointerType!=="mouse") return; pmxT=e.clientX/innerWidth*2-1; pmyT=e.clientY/innerHeight*2-1; };
+  const onPM=e=>{ if(e.pointerType!=="mouse") return; pmxT=e.clientX/innerWidth*2-1; pmyT=e.clientY/innerHeight*2-1;
+    ptrX=e.clientX; ptrY=e.clientY; ptrOn=e.target===renderer.domElement; };
   addEventListener("pointermove",onPM);
+  /* Picking: billboards light up under the mouse and open on click or tap */
+  const ray=new T.Raycaster(), ndc=new T.Vector2(); ray.far=320;
+  let ptrX=0, ptrY=0, ptrOn=false, hover=-1, lastHover=0;
+  const pickAt=(x,y)=>{ const r=renderer.domElement.getBoundingClientRect();
+    ndc.set((x-r.left)/r.width*2-1, -((y-r.top)/r.height)*2+1); ray.setFromCamera(ndc,camera);
+    const h=ray.intersectObjects(panelMeshes,false)[0]; return h?h.object.userData.stop:-1; };
+  const onClick=e=>{ if(!inputOn||!opts.onPick) return; const i=pickAt(e.clientX,e.clientY); if(i>=0) opts.onPick(i); };
+  renderer.domElement.addEventListener("click",onClick);
   let ignite=-1, lastAct=-1, disposed=false, perfMs=16, lastTune=0, bootAt=performance.now();
   const FOG_BASE=FOG.clone(), zoneCol=new T.Color(), zOut=new T.Vector3(), zCam=new T.Vector3();
 
   // dev-only hook for automated driving tests (stripped from production builds)
   if(import.meta.env.DEV) renderer.info.autoReset=false;
   if(import.meta.env.DEV) window.__nightDrive={ perf:()=>({calls:renderer.info.render.calls, tris:renderer.info.render.triangles, pr:renderer.getPixelRatio(), meshes:(()=>{ let n=0; scene.traverse(o=>{ if(o.isMesh||o.isPoints||o.isLine||o.isSprite) n++; }); return n; })(), ms:perfMs}), state:()=>({x:PW.x,z:PW.z,theta,cur,lat,u,manual}), fits, ok:drive.ok, links:LINKS.map(l=>({sA:l.sA,sB:l.sB,kind:l.kind,ax:l.a.x,az:l.a.z,bx:l.b.x,bz:l.b.z})),
-    place:(x,z,th)=>{ takeWheel(); PW.set(x,0,z); theta=th; u=0; snapCam=true; }, bend:(x,z)=>{ const p=bend(x,0,z); return [p.x,p.z]; }, yawAt };
+    place:(x,z,th)=>{ takeWheel(); PW.set(x,0,z); theta=th; u=0; snapCam=true; }, bend:(x,z)=>{ const p=bend(x,0,z); return [p.x,p.z]; }, yawAt,
+    board:i=>{ const v=panelMeshes[i].getWorldPosition(new T.Vector3()).project(camera), r=renderer.domElement.getBoundingClientRect(); return [r.left+(v.x+1)/2*r.width, r.top+(1-v.y)/2*r.height, v.z<1]; } };
 
   /* Static batching: every mesh that never moves is baked into world space and merged with the
      others that share its material, so the city, roads, lamps and signs cost a handful of draw calls.
@@ -1095,16 +1134,21 @@ export function createEngine(host, onState, onProgress, onReady){
 
   /* Loop */
   const clock=new T.Clock(); let raf=0, lastEmit=0, running=true;
-  let frameNo=0;
+  let frameNo=0, slowFor=0, bench=null;
   function frame(){
     raf=requestAnimationFrame(frame);
     if(!inputOn && (frameNo++)%6) return;
     const rawDt=clock.getDelta(), dt=Math.min(rawDt,0.05), t=clock.elapsedTime, now=performance.now();
     perfMs+=(rawDt*1000-perfMs)*0.05;
+    if(bench) bench.push(rawDt*1000);
     if(now-lastTune>1000&&now-bootAt>3000){ lastTune=now;
       let next=PR;
-      if(perfMs>22) next=Math.max(QMIN,PR*0.85); else if(perfMs<14.5&&PR<QMAX) next=Math.min(QMAX,PR*1.08);
-      if(Math.abs(next-PR)>0.02){ PR=next; renderer.setPixelRatio(PR); composer.setPixelRatio(PR); const w=W0(),h=H0(); renderer.setSize(w,h); composer.setSize(w,h); } }
+      if(perfMs>24) next=Math.max(QMIN,PR*0.85); else if(perfMs<18&&PR<QMAX) next=Math.min(QMAX,PR*1.08);
+      if(Math.abs(next-PR)>0.02){ PR=next; renderer.setPixelRatio(PR); composer.setPixelRatio(PR); const w=W0(),h=H0(); renderer.setSize(w,h); composer.setSize(w,h); }
+      // already at the lowest resolution and still slow: shed bloom, then the lamp lights, for good
+      slowFor = PR<=QMIN+0.01 && perfMs>26 ? slowFor+1 : 0;
+      if(slowFor>=3&&!opts.forced){ slowFor=0;
+        if(degrade()&&import.meta.env.DEV) console.info("[night-drive] still slow, dropped a feature"); } }
     const prevTheta=theta;
     if(manual){
       /* Driving in the open: the car has a world position (PW) and compass heading (theta), so it
@@ -1169,13 +1213,17 @@ export function createEngine(host, onState, onProgress, onReady){
     const camYaw=yaw+head*manualW;
     vA.fromArray(A.p).lerp(vB.fromArray(B.p),b).lerp(vC.fromArray(DRIVE_CAM.p),manualW).multiplyScalar(k); vA.y/=k; vA.y*=portrait?1.25:1;
     const desired=tmp.copy(vA).applyAxisAngle(UP,-camYaw).add(car.position);
-    vA.fromArray(A.l).lerp(vB.fromArray(B.l),b).lerp(vC.fromArray(DRIVE_CAM.l),manualW).applyAxisAngle(UP,-camYaw);
+    vA.fromArray(A.l).lerp(vB.fromArray(B.l),b).lerp(vC.fromArray(DRIVE_CAM.l),manualW);
+    if(portrait) vA.x-=4.5*(1-manualW);   // on phones the card sits low, so centre the board instead
+    vA.applyAxisAngle(UP,-camYaw);
     const look=vB.copy(car.position).add(vA);
     // inside a U-turn zone, rise to the outside of the bend and frame the set piece with the car still in shot
     let zw=0, zi=-1;
     const onMain=1-sstep(12,30,Math.abs(lat));   // set pieces belong to the main road, not the side streets
     ZONES.forEach((z,q)=>{ const w=sstep(z.from-45,z.from,cur)*(1-sstep(z.to,z.to+45,cur))*onMain; if(w>zw){ zw=w; zi=q; } });
-    if(zi>=0){ const Z=ZONES[zi], w=zw*Z.pull*(1-0.65*manualW);
+    // settled at a stop, the billboard overhead takes the shot back from the set piece
+    const atStop=manual?0:1-sstep(3,18,Math.abs(cur-STOPS[nearestStop(cur)]));
+    if(zi>=0){ const Z=ZONES[zi], w=zw*Z.pull*(1-0.65*manualW)*(1-atStop);
       zOut.copy(car.position).sub(Z.centre); zOut.y=0; zOut.normalize();
       vC.set(Math.sin(yaw),0,-Math.cos(yaw));   // road forward
       zCam.copy(car.position).addScaledVector(zOut,19).addScaledVector(vC,-12).addScaledVector(UP,8.5);
@@ -1208,10 +1256,12 @@ export function createEngine(host, onState, onProgress, onReady){
         if(d<d0){ b1=b0; d1=d0; b0=n; d0=d; } else if(d<d1){ b1=n; d1=d; } }
       for(let q=0;q<dyn.length;q++){ const n=q===0?b0:b1, L=dyn[q]; if(n){ bend(n[0]*5.2,7.9,n[1],L.position); L.visible=true; } else L.visible=false; } }
 
+    if(now-lastHover>90){ lastHover=now; const h=ptrOn&&inputOn?pickAt(ptrX,ptrY):-1;
+      if(h!==hover){ hover=h; renderer.domElement.style.cursor=h>=0?"pointer":""; } }
     const act=nearestStop(cur);
     if(act!==lastAct && panels[act]){ panels[act].flick=0.75; panels[act].sweep.value=-0.4; lastAct=act; }
     panels.forEach((p,q)=>{
-      const g=q===act?1:0; p.glow+=(g-p.glow)*(1-Math.exp(-dt*3));
+      const g=q===act||q===hover?1:0; p.glow+=(g-p.glow)*(1-Math.exp(-dt*3));
       let k=1;
       if(p.flick>0){ p.flick-=dt; k=Math.random()<0.45?0.18:1; }
       p.mat.color.setScalar((0.62+p.glow*0.72)*k);
@@ -1268,18 +1318,28 @@ export function createEngine(host, onState, onProgress, onReady){
     batchStatic();
     renderer.compile(scene,camera);
     frame();
+    /* Boot benchmark: about a second of real frames behind the loader. GPU names can be hidden or
+       misleading, so a machine that can't hold ~35 fps sheds the extras now, while the loader still
+       hides the shader rebuild. A visitor who chose High keeps it. */
+    if(!degraded&&!opts.forced){
+      bench=[]; await new Promise(r=>setTimeout(r,1200));
+      const ms=bench.slice(5).sort((a,b)=>a-b), med=ms.length?ms[ms.length>>1]:0; bench=null;
+      if(disposed) return;
+      if(med>28){ degrade(); degrade(); renderer.compile(scene,camera); perfMs=16; lastTune=performance.now();
+        if(import.meta.env.DEV) console.info(`[night-drive] boot benchmark ${med.toFixed(1)} ms, running light`); }
+    }
     onProgress(1);
-    setTimeout(onReady,350);
+    setTimeout(()=>onReady(degraded?"low":"high"),350);
   })();
 
   return {
-    goTo, step, setInput:v=>{ inputOn=v; },
+    goTo, step, setInput:v=>{ inputOn=v; }, get tier(){ return degraded?"low":"high"; },
     /** The road network for the minimap: main road polyline, cross roads, stops (world x/z). */
     map:(()=>{ const road=[]; for(let s=ROAD_S0;s<=ROAD_S1;s+=6) road.push([sample(pathX,s),sample(pathZ,s)]);
-      return { road, links:LINKS.map(l=>[l.a.x,l.a.z,l.b.x,l.b.z,l.kind]), stops:STOPS.map((s,i)=>{ const p=bend(STOP_SIDE[i]*BB_X,0,-s-14); return [p.x,p.z]; }),
+      return { road, links:LINKS.map(l=>[l.a.x,l.a.z,l.b.x,l.b.z,l.kind]), stops:STOPS.map((s,i)=>{ const p=bend(0,0,-s-BB_AHEAD); return [p.x,p.z]; }),
         bounds:[drive.x0,drive.z0,drive.x0+drive.W*DRIVE_RES,drive.z0+drive.H*DRIVE_RES] }; })(),
     /** On-screen pedals: press("up"|"down"|"left"|"right", isDown) */
     press:(k,down)=>{ if(!(k in keys)) return; keys[k]=down; if(down) takeWheel(); lastInput=performance.now(); },
-    dispose(){ disposed=true; cancelAnimationFrame(raf); removeEventListener("pointermove",onPM); removeEventListener("wheel",onWheel); removeEventListener("touchstart",onTS); removeEventListener("touchmove",onTM); removeEventListener("touchend",onTE); removeEventListener("keydown",onKey); removeEventListener("keyup",onKeyUp); removeEventListener("blur",onBlur); removeEventListener("resize",onResize); renderer.dispose(); renderer.domElement.remove(); }
+    dispose(){ disposed=true; cancelAnimationFrame(raf); removeEventListener("pointermove",onPM); renderer.domElement.removeEventListener("click",onClick); removeEventListener("wheel",onWheel); removeEventListener("touchstart",onTS); removeEventListener("touchmove",onTM); removeEventListener("touchend",onTE); removeEventListener("keydown",onKey); removeEventListener("keyup",onKeyUp); removeEventListener("blur",onBlur); removeEventListener("resize",onResize); renderer.dispose(); renderer.domElement.remove(); }
   };
 }

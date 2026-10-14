@@ -55,13 +55,6 @@ export const SECTION_OF = new Array(DATA.length).fill(0);
 /** Road distance of the final stop. */
 export const END_S = STOPS[STOPS.length - 1];
 
-/** Which side of the road each stop's billboard stands on (+1 right, -1 left): inside its U-turn,
-    so every turnaround holds its own section's billboards. The opening stops stand on the right. */
-export const STOP_SIDE = STOPS.map((_, i) => {
-  const t = TURNS.find((tt) => tt.section === SECTION_OF[i]);
-  return t ? t.side : 1;
-});
-
 /** Where the main road is built (road distance). */
 export const ROAD_S0 = -200, ROAD_S1 = END_S + 700;
 
@@ -76,8 +69,8 @@ const LINK_HALF = 7;
 /** [{ sA, sB, side, kind, turn }]: sA on the leg before the turn, sB on the leg after; side +1 = right, -1 = left. */
 export const CROSSINGS = [];
 {
-  const avoid = [];   // [s, clearance, side]: billboards and section boards stand inside their turn, gantries span both sides
-  STOPS.forEach((s, i) => avoid.push([s + 14, 11, STOP_SIDE[i]]));
+  const avoid = [];   // [s, clearance, side]: billboards and gantries span both sides, section boards stand inside their turn
+  STOPS.forEach((s) => avoid.push([s + 14, 11, 0]));
   GANTRIES.forEach((g) => avoid.push([g.s, 9, 0]));
   TURNS.forEach((t) => avoid.push([t.s0 - 20, 15, t.side]));
   const clear = (s, side) => avoid.every(([a, c, sd]) => (sd && sd !== side) || Math.abs(s - a) > c + LINK_HALF);

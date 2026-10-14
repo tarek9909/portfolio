@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { createEngine } from "./engine.js";
+import { CHOICES, detectQuality, setChoice } from "./quality.js";
 import { DATA, KIND, N, pad } from "./data.js";
 import { SECTIONS, SECTION_OF, STOPS, END_S } from "./course.js";
 
@@ -188,6 +188,40 @@ function Card({ it, i, off, nav }) {
   );
 }
 
+/** One billboard, opened by clicking it on the road. */
+function Board({ i, close, go, pick }) {
+  const it = DATA[i], acc = KIND[it.kind];
+  useEffect(() => {
+    const k = (e) => {
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowRight" && i < N - 1) pick(i + 1);
+      else if (e.key === "ArrowLeft" && i > 0) pick(i - 1);
+    };
+    addEventListener("keydown", k);
+    return () => removeEventListener("keydown", k);
+  }, [i]);
+  return (
+    <div className="board" data-scroll role="dialog" aria-modal="true" aria-label={it.title} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <article className="item boardin" key={i} style={{ "--acc": acc }}>
+        <div className="chead">
+          <span>No. {pad(i + 1)} / {pad(N)} · {SECTIONS[SECTION_OF[i]].title}</span>
+          <span style={{ color: acc }}>{it.kind}</span>
+        </div>
+        <h3>{it.title}</h3>
+        <p className="sub" style={{ color: acc }}>{it.subtitle}</p>
+        {it.period && <p className="period">{it.period}</p>}
+        <Details it={it} />
+        <div className="cnav">
+          <button onClick={() => pick(i - 1)} disabled={i === 0} aria-label="Previous billboard">← Prev</button>
+          <button className="go" onClick={() => go(i)}>Drive here →</button>
+          <button onClick={() => pick(i + 1)} disabled={i === N - 1} aria-label="Next billboard">Next →</button>
+        </div>
+        <button className="tbtn bclose" onClick={close} aria-label="Close">Close</button>
+      </article>
+    </div>
+  );
+}
+
 function Gauge({ v }) {
   const r = 19, c = 2 * Math.PI * r, arc = c * 0.75, f = Math.min(1, v / 240);
   return (
@@ -204,7 +238,7 @@ function Gauge({ v }) {
   );
 }
 
-function Catalogue({ close, go }) {
+function Catalogue({ close, go, noGL, try3D }) {
   useEffect(() => {
     const k = (e) => { if (e.key === "Escape") close(); };
     addEventListener("keydown", k);
@@ -218,8 +252,11 @@ function Catalogue({ close, go }) {
             <div className="eyebrow">Catalogue · {N} entries</div>
             <h2>Everything on the road</h2>
           </div>
-          <button className="tbtn" onClick={close}>Close</button>
+          {noGL
+            ? <button className="tbtn" onClick={try3D}>Try 3D anyway</button>
+            : <button className="tbtn" onClick={close}>Close</button>}
         </div>
+        {noGL && <p className="nogl">The 3D drive is off because this browser has no graphics acceleration. Everything is listed below.</p>}
         <div className="grid">
           {DATA.map((it, i) => (
             <article className="item" key={i} style={{ "--i": i, "--acc": KIND[it.kind] }}>
@@ -231,7 +268,7 @@ function Catalogue({ close, go }) {
               <p className="sub" style={{ color: KIND[it.kind] }}>{it.subtitle}</p>
               {it.period && <p className="period">{it.period}</p>}
               <Details it={it} />
-              <button className="go" onClick={() => go(i)}>Drive here →</button>
+              {!noGL && <button className="go" onClick={() => go(i)}>Drive here →</button>}
             </article>
           ))}
         </div>
@@ -248,27 +285,31 @@ export default function App() {
   const [load, setLoad] = useState(0.05);
   const [ready, setReady] = useState(false);
   const [cat, setCat] = useState(false);
+  const [board, setBoard] = useState(null);   // billboard opened by clicking it
   const [noGL, setNoGL] = useState(false);
   const host = useRef(null);
   const eng = useRef(null);
+  const [q] = useState(detectQuality);
+  const [tier, setTier] = useState(q.tier);   // the engine may step down after its boot benchmark
+  // cycling Auto → High → Low rebuilds the scene, so the simplest honest way is a reload
+  const cycleQuality = () => { setChoice(CHOICES[(CHOICES.indexOf(q.choice) + 1) % CHOICES.length]); location.reload(); };
 
   useEffect(() => {
-    let e = null;
-    try {
-      e = createEngine(host.current, setSt, setLoad, () => setReady(true));
+    let e = null, gone = false;
+    const fail = (err) => { console.error(err); setNoGL(true); setReady(true); setCat(true); };
+    if (q.tier === "none") { fail(new Error("no hardware WebGL")); return; }
+    // the engine (and three.js) is its own chunk, so the loader paints before it downloads and parses
+    import("./engine.js").then(({ createEngine }) => {
+      if (gone) return;
+      e = createEngine(host.current, setSt, setLoad, (t) => { setTier(t); setReady(true); }, { tier: q.tier, forced: q.choice !== "auto", onPick: setBoard });
       eng.current = e;
-    } catch (err) {
-      console.error(err);
-      setNoGL(true);
-      setReady(true);
-      setCat(true);
-    }
-    return () => { if (e) e.dispose(); };
+    }).catch(fail);
+    return () => { gone = true; if (e) e.dispose(); };
   }, []);
 
-  useEffect(() => { if (eng.current) eng.current.setInput(!cat); }, [cat]);
+  useEffect(() => { if (eng.current) eng.current.setInput(!cat && board === null); }, [cat, board]);
 
-  const go = (i) => { setCat(false); if (eng.current) eng.current.goTo(i); };
+  const go = (i) => { setCat(false); setBoard(null); if (eng.current) eng.current.goTo(i); };
   const nav = (d) => { if (eng.current) eng.current.step(d); };
   const intro = st.dist < 22;
   const it = DATA[st.active];
@@ -298,6 +339,9 @@ export default function App() {
         <nav className="tbtns">
           <button className="tbtn" onClick={() => setCat(true)}>Catalogue</button>
           <button className="tbtn" onClick={() => go(N - 1)}>Contact</button>
+          <button className="tbtn" onClick={cycleQuality} title={"Graphics quality" + (q.gpu ? " · " + q.gpu : "")}>
+            <span className="qlbl">Quality: </span>{q.choice === "auto" ? "Auto" : q.choice === "high" ? "High" : "Low"}{q.choice === "auto" && tier !== "none" ? " (" + tier + ")" : ""}
+          </button>
         </nav>
       </header>
       <section className={"hero" + (intro ? "" : " off")}>
@@ -353,7 +397,8 @@ export default function App() {
       <Pedals press={(k, d) => eng.current && eng.current.press(k, d)} />
       {ready && eng.current && <Minimap map={eng.current.map} x={st.carX} z={st.carZ} h={st.carH} active={st.active} />}
       {st.bump && <div className="bump" aria-hidden="true"></div>}
-      {cat && <Catalogue close={() => { if (!noGL) setCat(false); }} go={go} />}
+      {board !== null && <Board i={board} close={() => setBoard(null)} go={go} pick={(i) => setBoard(Math.max(0, Math.min(N - 1, i)))} />}
+      {cat && <Catalogue close={() => { if (!noGL) setCat(false); }} go={go} noGL={noGL} try3D={() => { setChoice("low"); location.reload(); }} />}
       <div className={"loader" + (ready ? " done" : "")} aria-hidden={ready}>
         <div className="lin">
           <div className="eyebrow">Starting the engine</div>
