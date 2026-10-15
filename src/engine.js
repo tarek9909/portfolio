@@ -1064,12 +1064,25 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
   const autopilot=()=>{ if(!manual) return; manual=false; target=cur; vel=u*Math.cos(head);
     // off down a side street: cut straight back to the main road rather than sliding through the city
     if(Math.abs(lat)>LAT_MAX+1){ lat=LANE; head=0; vel=0; snapCam=true; } };
-  const inScroll=e=>e.target && e.target.closest && e.target.closest("[data-scroll]");
-  const onWheel=e=>{ if(!inputOn||inScroll(e)) return; autopilot(); const k=e.deltaMode===1?16:1; target=clampT(target+e.deltaY*k*0.07); calm=false; lastInput=performance.now(); };
-  let ty=null;
-  const onTS=e=>{ if(!inputOn||inScroll(e)) return; ty=e.touches[0].clientY; };
-  const onTM=e=>{ if(ty===null||!inputOn) return; autopilot(); const y=e.touches[0].clientY; target=clampT(target+(ty-y)*0.22); calm=false; ty=y; lastInput=performance.now(); };
-  const onTE=()=>{ ty=null; };
+  const inUi=e=>e.target && e.target.closest && e.target.closest("[data-scroll], .pedals");
+  const onWheel=e=>{ if(!inputOn||inUi(e)) return; autopilot(); const k=e.deltaMode===1?16:1; target=clampT(target+e.deltaY*k*0.07); calm=false; lastInput=performance.now(); };
+  let ty=null, swipeTouch=null;
+  const onTS=e=>{
+    if(!inputOn||inUi(e)||keys.up||keys.down||keys.left||keys.right||swipeTouch!==null) return;
+    const touch=Array.from(e.changedTouches).find(t=>!t.target?.closest?.("[data-scroll], .pedals"));
+    if(!touch) return;
+    swipeTouch=touch.identifier; ty=touch.clientY;
+  };
+  const onTM=e=>{
+    if(ty===null||!inputOn||swipeTouch===null) return;
+    const touch=Array.from(e.changedTouches).find(t=>t.identifier===swipeTouch);
+    if(!touch) return;
+    if(keys.up||keys.down||keys.left||keys.right){ ty=touch.clientY; return; }
+    autopilot(); const y=touch.clientY; target=clampT(target+(ty-y)*0.22); calm=false; ty=y; lastInput=performance.now();
+  };
+  const onTE=e=>{
+    if(swipeTouch!==null&&Array.from(e.changedTouches).some(t=>t.identifier===swipeTouch)){ ty=null; swipeTouch=null; }
+  };
   const goTo=(i,gentle=false)=>{ autopilot(); target=STOPS[Math.max(0,Math.min(N-1,i))]; calm=gentle; lastInput=performance.now(); };
   /** Step n stops from wherever the car is heading (not where it currently is). */
   const step=n=>{ autopilot(); const base=n>0?stopAtOrBefore(target):stopAtOrAfter(target); goTo(base+n,true); };
@@ -1084,7 +1097,7 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
   const onKeyUp=e=>{ const k=KEYMAP[e.code]; if(k) keys[k]=false; };
   const onBlur=()=>{ keys.up=keys.down=keys.left=keys.right=false; };
   addEventListener("wheel",onWheel,{passive:true});
-  addEventListener("touchstart",onTS,{passive:true}); addEventListener("touchmove",onTM,{passive:true}); addEventListener("touchend",onTE);
+  addEventListener("touchstart",onTS,{passive:true}); addEventListener("touchmove",onTM,{passive:true}); addEventListener("touchend",onTE); addEventListener("touchcancel",onTE);
   addEventListener("keydown",onKey); addEventListener("keyup",onKeyUp); addEventListener("blur",onBlur);
 
   const onResize=()=>{ const w=W0(),h=H0(); camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h); composer.setSize(w,h); grade.uniforms.uRes.value.set(w,h); };
@@ -1221,7 +1234,6 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
     vA.fromArray(A.p).lerp(vB.fromArray(B.p),b).lerp(vC.fromArray(DRIVE_CAM.p),manualW).multiplyScalar(k); vA.y/=k; vA.y*=portrait?1.25:1;
     const desired=tmp.copy(vA).applyAxisAngle(UP,-camYaw).add(car.position);
     vA.fromArray(A.l).lerp(vB.fromArray(B.l),b).lerp(vC.fromArray(DRIVE_CAM.l),manualW);
-    if(portrait){ vA.x-=4.5*(1-manualW); vA.y-=1.4*(1-manualW); }   // tall screens: the card sits low, so centre the board and lift it clear
     vA.applyAxisAngle(UP,-camYaw);
     const look=vB.copy(car.position).add(vA);
     // inside a U-turn zone, rise to the outside of the bend and frame the set piece with the car still in shot
@@ -1349,6 +1361,6 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
         bounds:[drive.x0,drive.z0,drive.x0+drive.W*DRIVE_RES,drive.z0+drive.H*DRIVE_RES] }; })(),
     /** On-screen pedals: press("up"|"down"|"left"|"right", isDown) */
     press:(k,down)=>{ if(!(k in keys)) return; keys[k]=down; if(down) takeWheel(); lastInput=performance.now(); },
-    dispose(){ disposed=true; cancelAnimationFrame(raf); removeEventListener("pointermove",onPM); renderer.domElement.removeEventListener("click",onClick); removeEventListener("wheel",onWheel); removeEventListener("touchstart",onTS); removeEventListener("touchmove",onTM); removeEventListener("touchend",onTE); removeEventListener("keydown",onKey); removeEventListener("keyup",onKeyUp); removeEventListener("blur",onBlur); removeEventListener("resize",onResize); renderer.dispose(); renderer.domElement.remove(); }
+    dispose(){ disposed=true; cancelAnimationFrame(raf); removeEventListener("pointermove",onPM); renderer.domElement.removeEventListener("click",onClick); removeEventListener("wheel",onWheel); removeEventListener("touchstart",onTS); removeEventListener("touchmove",onTM); removeEventListener("touchend",onTE); removeEventListener("touchcancel",onTE); removeEventListener("keydown",onKey); removeEventListener("keyup",onKeyUp); removeEventListener("blur",onBlur); removeEventListener("resize",onResize); renderer.dispose(); renderer.domElement.remove(); }
   };
 }

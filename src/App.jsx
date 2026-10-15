@@ -103,10 +103,47 @@ function Minimap({ map, x, z, h, active }) {
 
 /* Touch controls: hold to accelerate, brake/reverse and steer (shown on touch screens only) */
 function Pedals({ press }) {
+  const active = useRef(new Map());
+  const held = useRef(new Map());
+  const pressRef = useRef(press);
+  pressRef.current = press;
+  useEffect(() => {
+    const clear = () => {
+      const keys = [...held.current.keys()];
+      active.current.clear();
+      held.current.clear();
+      keys.forEach((k) => pressRef.current(k, false));
+    };
+    const onVisibility = () => { if (document.hidden) clear(); };
+    addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      removeEventListener("blur", clear);
+      document.removeEventListener("visibilitychange", onVisibility);
+      clear();
+    };
+  }, []);
+  const release = (e) => {
+    const k = active.current.get(e.pointerId);
+    if (!k) return;
+    active.current.delete(e.pointerId);
+    const count = (held.current.get(k) || 1) - 1;
+    if (count) held.current.set(k, count);
+    else { held.current.delete(k); pressRef.current(k, false); }
+  };
   const bind = (k) => ({
-    onPointerDown: (e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); press(k, true); },
-    onPointerUp: () => press(k, false),
-    onPointerCancel: () => press(k, false),
+    onPointerDown: (e) => {
+      if (e.button !== 0 || active.current.has(e.pointerId)) return;
+      e.preventDefault();
+      active.current.set(e.pointerId, k);
+      const count = held.current.get(k) || 0;
+      held.current.set(k, count + 1);
+    if (!count) pressRef.current(k, true);
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    },
+    onPointerUp: release,
+    onPointerCancel: release,
+    onLostPointerCapture: release,
     onContextMenu: (e) => e.preventDefault(),
   });
   return (
