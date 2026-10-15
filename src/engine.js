@@ -1234,6 +1234,7 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
     vA.fromArray(A.p).lerp(vB.fromArray(B.p),b).lerp(vC.fromArray(DRIVE_CAM.p),manualW).multiplyScalar(k); vA.y/=k; vA.y*=portrait?1.25:1;
     const desired=tmp.copy(vA).applyAxisAngle(UP,-camYaw).add(car.position);
     vA.fromArray(A.l).lerp(vB.fromArray(B.l),b).lerp(vC.fromArray(DRIVE_CAM.l),manualW);
+    if(portrait) vA.x-=3.5*(1-manualW);  // keep the roadside billboard in frame on narrow screens
     vA.applyAxisAngle(UP,-camYaw);
     const look=vB.copy(car.position).add(vA);
     // inside a U-turn zone, rise to the outside of the bend and frame the set piece with the car still in shot
