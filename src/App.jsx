@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { CHOICES, detectQuality, setChoice } from "./quality.js";
-import { DATA, KIND, N, pad } from "./data.js";
+import { DATA, KIND, N, SITE, pad } from "./data.js";
 import { SECTIONS, SECTION_OF, STOPS, END_S } from "./course.js";
 
 function copyText(text, el) {
@@ -288,6 +288,7 @@ export default function App() {
   const [board, setBoard] = useState(null);   // billboard opened by clicking it
   const [noGL, setNoGL] = useState(false);
   const host = useRef(null);
+  const railList = useRef(null);
   const eng = useRef(null);
   const [q] = useState(detectQuality);
   const [tier, setTier] = useState(q.tier);   // the engine may step down after its boot benchmark
@@ -308,6 +309,18 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (eng.current) eng.current.setInput(!cat && board === null); }, [cat, board]);
+
+  // keep the current stop visible in the catalogue rail when the list is longer than its box
+  useEffect(() => {
+    const ol = railList.current;
+    if (!ol) return;
+    ol.classList.toggle("scrolls", ol.scrollHeight > ol.clientHeight + 1);
+    const li = ol.children[st.active];
+    if (li) {
+      const top = li.offsetTop - ol.offsetTop, bottom = top + li.offsetHeight;
+      if (top < ol.scrollTop || bottom > ol.scrollTop + ol.clientHeight) ol.scrollTo({ top: top - ol.clientHeight / 2, behavior: "smooth" });
+    }
+  }, [st.active]);
 
   const go = (i) => { setCat(false); setBoard(null); if (eng.current) eng.current.goTo(i); };
   const nav = (d) => { if (eng.current) eng.current.step(d); };
@@ -333,8 +346,8 @@ export default function App() {
       )}
       <header className="top">
         <div className="brand">
-          <div className="mark">TA</div>
-          <div><b>Tarek Aswad</b> <span>· Full-stack developer</span></div>
+          <div className="mark">{SITE.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}</div>
+          <div><b>{SITE.name}</b>{SITE.role && <span> · {SITE.role}</span>}</div>
         </div>
         <nav className="tbtns">
           <button className="tbtn" onClick={() => setCat(true)}>Catalogue</button>
@@ -345,14 +358,14 @@ export default function App() {
         </nav>
       </header>
       <section className={"hero" + (intro ? "" : " off")}>
-        <div className="eyebrow">No. 01 · Night drive along the corniche</div>
-        <h1><Letters text="Tarek Aswad" /></h1>
-        <p>Full-stack developer in Lebanon. React, Node.js, Laravel and Flutter, from the API to the screen. Every billboard on this road is a page of my work.</p>
+        <div className="eyebrow">No. 01 · {SITE.eyebrow}</div>
+        <h1><Letters text={SITE.name} /></h1>
+        <p>{SITE.intro}</p>
         <div className="cue"><i></i>Scroll to drive</div>
       </section>
       <nav className={"rail" + (intro ? " dim" : "")} aria-label="Catalogue stops">
         <h2>Catalogue</h2>
-        <ol>
+        <ol ref={railList} data-scroll>
           {DATA.map((d, i) => (
             <li key={i} style={{ "--i": i }}>
               <button className={i === st.active ? "on" : ""} onClick={() => go(i)} aria-current={i === st.active ? "step" : undefined}>

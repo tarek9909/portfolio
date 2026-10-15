@@ -1,4 +1,6 @@
-import * as THREE_CORE from "three";
+import {
+  AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, ClampToEdgeWrapping, Clock, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, ExtrudeGeometry, Float32BufferAttribute, FogExp2, Group, HalfFloatType, HemisphereLight, IcosahedronGeometry, InstancedMesh, LineBasicMaterial, LineSegments, LinearEncoding, Matrix4, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MultiplyBlending, NoToneMapping, Object3D, PMREMGenerator, PerspectiveCamera, PlaneGeometry, PointLight, Points, PointsMaterial, Raycaster, RepeatWrapping, Scene, ShaderMaterial, Shape, SphereGeometry, SpotLight, Sprite, SpriteMaterial, TextureLoader, TorusGeometry, Vector2, Vector3, WebGLRenderTarget, WebGLRenderer, sRGBEncoding,
+} from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
@@ -9,7 +11,8 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { DATA, KIND, N, pad } from "./data.js";
 import { SECTIONS, COURSE, TURNS, GANTRIES, CROSSINGS, STOPS, END_S as END, ROAD_S0, ROAD_S1, nearestStop, stopAtOrBefore, stopAtOrAfter } from "./course.js";
 
-const THREE = { ...THREE_CORE, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, BufferGeometryUtils };
+// named imports (not `import * as`) so the unused parts of three.js are tree-shaken out of the bundle
+const THREE = { AdditiveBlending, BackSide, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, ClampToEdgeWrapping, Clock, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, ExtrudeGeometry, Float32BufferAttribute, FogExp2, Group, HalfFloatType, HemisphereLight, IcosahedronGeometry, InstancedMesh, LineBasicMaterial, LineSegments, LinearEncoding, Matrix4, Mesh, MeshBasicMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MultiplyBlending, NoToneMapping, Object3D, PMREMGenerator, PerspectiveCamera, PlaneGeometry, PointLight, Points, PointsMaterial, Raycaster, RepeatWrapping, Scene, ShaderMaterial, Shape, SphereGeometry, SpotLight, Sprite, SpriteMaterial, TextureLoader, TorusGeometry, Vector2, Vector3, WebGLRenderTarget, WebGLRenderer, sRGBEncoding, EffectComposer, RenderPass, ShaderPass, UnrealBloomPass, BufferGeometryUtils };
 
 export function createEngine(host, onState, onProgress, onReady, opts={}){
   const T = THREE;
@@ -154,6 +157,8 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
   /* The U-turns each get their own set piece, built around the centre of the hairpin */
   const UT=TURNS;
   const turnFor=key=>TURNS.find(t=>SECTIONS[t.section].scene===key);
+  // every bend gets its set piece; scenes repeat when there are more bends than scenes (see sceneFor in server/rules.js)
+  const turnsFor=key=>TURNS.filter(t=>SECTIONS[t.section].scene===key);
   const turnCentre=t=>bend(t.side*t.R,0,-t.s0);
   const CLEARING_R={grid:42, neon:30};
   const CLEARINGS=UT.map(t=>({c:turnCentre(t), r:CLEARING_R[SECTIONS[t.section].scene]||20}));
@@ -695,8 +700,8 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
     p.frustumCulled=false; return {p,pos,col,geo}; };
 
   /* 1. The Marina: moored yachts strung with lights, a jetty, and lanterns rising off the water */
-  if(turnFor("marina")){
-    const t=turnFor("marina"), F=hairpinFrame(t);
+  turnsFor("marina").forEach(t=>{
+    const F=hairpinFrame(t);
     ZONES.push({name:SECTIONS[t.section].title, scene:"The Marina", no:t.no, from:t.s0-40, to:t.s0+t.len+40, fog:Lc("#0d2c38"), centre:F.position.clone(), focus:F.localToWorld(new T.Vector3(0,5,45)), pull:0.75});
     const wood=new T.MeshStandardMaterial({color:Lc("#3b2a1e"), roughness:0.9});
     const jetty=new T.Mesh(new T.BoxGeometry(3.2,0.35,78),wood); jetty.position.set(0,-0.55,84); F.add(jetty);
@@ -738,11 +743,11 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
         lan.col[i]=3.2*fl*fade; lan.col[i+1]=1.4*fl*fade; lan.col[i+2]=0.35*fl*fade; });
       lan.geo.attributes.position.needsUpdate=true; lan.geo.attributes.color.needsUpdate=true;
     });
-  }
+  });
 
   /* 2. Neon Quarter: a tunnel of neon arches that chase the car, a hologram over the plaza, searchlights */
-  if(turnFor("neon")){
-    const t=turnFor("neon"), F=hairpinFrame(t);
+  turnsFor("neon").forEach(t=>{
+    const F=hairpinFrame(t);
     ZONES.push({name:SECTIONS[t.section].title, scene:"Neon Quarter", no:t.no, from:t.s0-40, to:t.s0+t.len+40, fog:Lc("#2a1036"), centre:F.position.clone(), focus:F.localToWorld(new T.Vector3(0,26,0)), pull:0.4});
     const arcS=[]; for(let s=t.s0-35; s<=t.s0+t.len+35; s+=6) arcS.push(s);
     const arches=new T.InstancedMesh(new T.TorusGeometry(13,0.16,6,56,Math.PI), new T.MeshBasicMaterial({color:0xffffff}), arcS.length);
@@ -774,11 +779,11 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
         ac.setHSL(hueOf(k),1,0.5).multiplyScalar(0.7+chase*2.4+near*3.5); arches.setColorAt(k,ac); });
       arches.instanceColor.needsUpdate=true;
     });
-  }
+  });
 
   /* The Grid: a plaza of light columns that rise and fall like a live equaliser, ringed by orbiting cubes */
-  if(turnFor("grid")){
-    const t=turnFor("grid"), F=hairpinFrame(t);
+  turnsFor("grid").forEach(t=>{
+    const F=hairpinFrame(t);
     ZONES.push({name:SECTIONS[t.section].title, scene:"The Grid", no:t.no, from:t.s0-40, to:t.s0+t.len+40, fog:Lc("#0b2a22"), centre:F.position.clone(), focus:F.localToWorld(new T.Vector3(0,9,0)), pull:0.6});
     const cells=[]; for(let gx=-9;gx<=9;gx++) for(let gz=-9;gz<=9;gz++){ const r=Math.hypot(gx,gz); if(r<=9.2) cells.push([gx*2.5,gz*2.5,r]); }
     const cols=new T.InstancedMesh(new T.BoxGeometry(1.8,1,1.8).translate(0,0.5,0), new T.MeshBasicMaterial({color:0xffffff}), cells.length);
@@ -800,11 +805,11 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
       orbit.rotation.y=tt*0.35;
       cubes.forEach((c,k)=>{ const a=k/12*Math.PI*2; c.position.set(Math.cos(a)*18,Math.sin(tt*1.2+k)*2.6,Math.sin(a)*18); c.rotation.set(tt+k,tt*0.7+k,0); });
     });
-  }
+  });
 
   /* 3. Luna Park: a lit Ferris wheel turning over the water, a nod to the one on Beirut's corniche */
-  if(turnFor("luna")){
-    const t=turnFor("luna"), F=hairpinFrame(t);
+  turnsFor("luna").forEach(t=>{
+    const F=hairpinFrame(t);
     ZONES.push({name:SECTIONS[t.section].title, scene:"Luna Park", no:t.no, from:t.s0-40, to:t.s0+t.len+40, fog:Lc("#2c1b14"), centre:F.position.clone(), focus:F.localToWorld(new T.Vector3(0,30,14)), pull:0.85});
     const island=new T.Mesh(new T.CylinderGeometry(20,23,2.4,40),concrete); island.position.set(0,-0.8,14); F.add(island);
     const wheel=new T.Group(); wheel.userData.dyn=true; wheel.position.set(0,32,14); F.add(wheel);
@@ -832,7 +837,7 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
       for(let k=0;k<16;k++){ const a=k*Math.PI/8+rot; gd.position.set(Math.cos(a)*Rw,32+Math.sin(a)*Rw-1.6,14); gd.rotation.z=Math.sin(tt*1.3+k)*0.06; gd.updateMatrix(); gond.setMatrixAt(k,gd.matrix); }
       gond.instanceMatrix.needsUpdate=true;
     });
-  }
+  });
 
   /* Billboards (the catalogue): overhead signs spanning the road a little past each stop,
      facing the approaching car, built like the section gantries. Click one to open it. */
@@ -1034,7 +1039,8 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
     low:{p:[1.8,1.0,11], l:[2.2,6.0,-14]},
     crane:{p:[-5.5,8.5,19], l:[3,4.8,-14]}
   };
-  const SEQ=["hero","side","chase","low","side","chase","low","side","chase","low","side","chase","crane"];
+  // one camera shot per stop, for any number of stops: hero first, crane at the end, side/chase/low between
+  const SEQ=Array.from({length:N},(_,i)=>i===0?"hero":i===N-1?"crane":["side","chase","low"][(i-1)%3]);
   const DRIVE_CAM={p:[0,3.3,11.5], l:[0,1.4,-16]};
   let zoneShown=-1;
   const UP=new T.Vector3(0,1,0), vA=new T.Vector3(), vB=new T.Vector3(), vC=new T.Vector3(), camPos=new T.Vector3(), camLook=new T.Vector3(), tmp=new T.Vector3();
@@ -1133,7 +1139,7 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
   }
 
   /* Loop */
-  const clock=new T.Clock(); let raf=0, lastEmit=0, running=true;
+  const clock=new T.Clock(); let raf=0, lastEmit=0, lastSt=null, running=true;
   let frameNo=0, slowFor=0, bench=null;
   function frame(){
     raf=requestAnimationFrame(frame);
@@ -1177,7 +1183,8 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
     } else {
       if(now-lastInput>650){ const ns=STOPS[nearestStop(target)]; target+=(ns-target)*(1-Math.exp(-dt*3)); }
       // critically damped spring: eases out of rest and settles into each stop without overshoot
-      const W=calm?1.1:1.4, VMAX=calm?24:45; vel+=(W*W*(target-cur)-2*W*vel)*dt; vel=Math.max(-VMAX,Math.min(VMAX,vel)); cur+=vel*dt;
+      // long roads: far jumps speed up so any jump takes about the same time
+      const W=calm?1.1:1.4, VMAX=calm?24:Math.max(45,Math.min(200,Math.abs(target-cur)/4)); vel+=(W*W*(target-cur)-2*W*vel)*dt; vel=Math.max(-VMAX,Math.min(VMAX,vel)); cur+=vel*dt;
       if(Math.abs(target-cur)<0.02&&Math.abs(vel)<0.05){ cur=target; vel=0; }
       lat+=(LANE-lat)*(1-Math.exp(-dt*1.4));   // autopilot drifts back into its lane
       // if the driver left the car turned round, swing it back to face along the road
@@ -1300,7 +1307,9 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
 
     if(import.meta.env.DEV) renderer.info.reset();
     composer.render();
-    if(now-lastEmit>90){ lastEmit=now; onState({dist:cur, active:Math.min(N-1,Math.max(0,act)), speed:speed*3.6, dir:vm>0.5?1:vm<-0.5?-1:0, zone:zoneShown>=0?ZONES[zoneShown].name:null, zoneScene:zoneShown>=0?ZONES[zoneShown].scene:null, zoneNo:zoneShown>=0?ZONES[zoneShown].no:0, manual, bump:bumpShake>0.5, carX:car.position.x, carZ:car.position.z, carH:theta}); }
+    if(now-lastEmit>90){ lastEmit=now; const st={dist:Math.round(cur*10)/10, active:Math.min(N-1,Math.max(0,act)), speed:Math.round(speed*36)/10, dir:vm>0.5?1:vm<-0.5?-1:0, zone:zoneShown>=0?ZONES[zoneShown].name:null, zoneScene:zoneShown>=0?ZONES[zoneShown].scene:null, zoneNo:zoneShown>=0?ZONES[zoneShown].no:0, manual, bump:bumpShake>0.5, carX:Math.round(car.position.x*20)/20, carZ:Math.round(car.position.z*20)/20, carH:Math.round(theta*500)/500};
+      // only hand React a new object when something it shows has changed (parked or idle = no re-render)
+      if(!lastSt||Object.keys(st).some(k=>st[k]!==lastSt[k])){ lastSt=st; onState(st); } }
   }
 
   /* Boot: wait for fonts, paint billboards, start */

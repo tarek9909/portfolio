@@ -1,17 +1,14 @@
-import { DATA } from "./data.js";
+import { DATA, SECTIONS } from "./data.js";
 
 /* The drive is split into sections. The opening stops sit on the first straight. Every other
    section is a hairpin U-turn with its own set piece: an overhead gantry on the highway announces
    it, the section's billboards line the bend, and a stretch of highway leads on to the next one.
    Turns alternate right/left, so the road snakes in parallel legs and never crosses itself:
    right turns have the city on their inside, left turns the sea. */
-export const SECTIONS = [
-  { title: "Start", items: [0, 1] },
-  { title: "Career", scene: "neon", sceneName: "Neon Quarter", items: [2, 3, 4] },
-  { title: "Projects", scene: "marina", sceneName: "The Marina", items: [5, 6, 7, 8, 9] },
-  { title: "Toolkit", scene: "grid", sceneName: "The Grid", items: [10, 11] },
-  { title: "Contact", scene: "luna", sceneName: "Luna Park", items: [12] },
-];
+/* SECTIONS comes from the database (edited at /admin): [{ title, scene?, sceneName?, items: [DATA indices] }].
+   The first section is the opening straight; every later one is a bend whose scene is picked from its
+   place in the road. There is no limit on sections or entries: the road grows to fit them. */
+export { SECTIONS };
 
 const INTRO_GAP = 70;     // between the opening stops
 const HIGHWAY = 170;      // straight between one section and the next
@@ -34,7 +31,7 @@ export const SECTION_OF = new Array(DATA.length).fill(0);
   let s = 0, side = 1, turnNo = 0;
   SECTIONS.forEach((sec, k) => {
     sec.items.forEach((it) => { SECTION_OF[it] = k; });
-    if (!sec.scene) {
+    if (k === 0) {
       sec.items.forEach((it, j) => { STOPS[it] = j * INTRO_GAP; });
       s = (sec.items.length - 1) * INTRO_GAP;
       COURSE.push(["S", s]);   // the opening straight is part of the road too

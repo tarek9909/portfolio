@@ -1,0 +1,331 @@
+{
+  "site": {
+    "name": "Tarek Aswad",
+    "role": "Full-stack developer",
+    "eyebrow": "Night drive along the corniche",
+    "intro": "Full-stack developer in Lebanon. React, Node.js, Laravel and Flutter, from the API to the screen. Every billboard on this road is a page of my work.",
+    "pageTitle": "Tarek Aswad Night Drive",
+    "description": "Tarek Aswad, full-stack developer. An interactive night drive through my work."
+  },
+  "categories": [
+    {
+      "name": "Driver",
+      "color": "#dfe8ff"
+    },
+    {
+      "name": "Profile",
+      "color": "#a9c6ff"
+    },
+    {
+      "name": "Experience",
+      "color": "#ffb15e"
+    },
+    {
+      "name": "Education",
+      "color": "#8fd6c0"
+    },
+    {
+      "name": "Project",
+      "color": "#a9c6ff"
+    },
+    {
+      "name": "Research",
+      "color": "#8fd6c0"
+    },
+    {
+      "name": "Toolkit",
+      "color": "#ffb15e"
+    },
+    {
+      "name": "Certificates",
+      "color": "#8fd6c0"
+    },
+    {
+      "name": "Contact",
+      "color": "#ffb15e"
+    }
+  ],
+  "sections": [
+    {
+      "title": "Start",
+      "scene": null
+    },
+    {
+      "title": "Career",
+      "scene": "neon"
+    },
+    {
+      "title": "Projects",
+      "scene": "marina"
+    },
+    {
+      "title": "Toolkit",
+      "scene": "grid"
+    },
+    {
+      "title": "Contact",
+      "scene": "luna"
+    }
+  ],
+  "entries": [
+    {
+      "section": 0,
+      "category": "Driver",
+      "title": "Tarek Aswad",
+      "subtitle": "Full-stack developer",
+      "period": "Saidoun, Lebanon",
+      "body": "I build and launch responsive web and mobile apps, from the API and database to the screen in your hand.",
+      "tags": [
+        "React",
+        "Node.js",
+        "Laravel",
+        "Flutter",
+        "Three.js"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 0,
+      "category": "Profile",
+      "title": "What I build",
+      "subtitle": "Web and mobile, end to end",
+      "period": "",
+      "body": "Responsive web and mobile applications built with React, Node.js, Laravel and Flutter, with strong skills in API integration, database management and scalable application development.",
+      "tags": [
+        "API integration",
+        "Databases",
+        "Responsive UI",
+        "Cross-platform"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 1,
+      "category": "Experience",
+      "title": "ZinGlow S.A.L",
+      "subtitle": "Full-stack developer",
+      "period": "02/2026 – Present",
+      "body": "Developing and launching websites, management systems and mobile applications, covering API integration, database management, responsive design and cross-platform development.",
+      "tags": [
+        "Node.js",
+        "React",
+        "Flutter"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 1,
+      "category": "Experience",
+      "title": "IDS",
+      "subtitle": "Laravel intern",
+      "period": "2024 · Beirut",
+      "body": "Developed web applications with the Laravel PHP framework.",
+      "tags": [
+        "Laravel",
+        "PHP"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 1,
+      "category": "Education",
+      "title": "Rafik Hariri University",
+      "subtitle": "B.Sc. in Computer Science",
+      "period": "09/2021 – 06/2024 · Mechref",
+      "body": "Bachelor of Science in Computer Science.",
+      "tags": [
+        "Computer Science"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 2,
+      "category": "Project",
+      "title": "Vendoor",
+      "subtitle": "White-label commerce SaaS",
+      "period": "",
+      "body": "A white-label commerce platform that lets businesses launch their own branded mobile apps, dashboards and POS solutions.",
+      "tags": [
+        "SaaS",
+        "Mobile apps",
+        "Dashboards",
+        "POS"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 2,
+      "category": "Project",
+      "title": "Moodify",
+      "subtitle": "Captions from emotion",
+      "period": "",
+      "body": "Users upload an image and receive automated captions and hashtags based on the emotional content of the picture.",
+      "tags": [
+        "Web platform",
+        "Image analysis"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 2,
+      "category": "Project",
+      "title": "DFA Visualizer",
+      "subtitle": "Minimizer and equivalence checker",
+      "period": "",
+      "body": "Minimizes deterministic finite automata, checks whether two automata are equivalent and visualizes the result.",
+      "tags": [
+        "Algorithms",
+        "Automata",
+        "Visualization"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 2,
+      "category": "Project",
+      "title": "Activity Portal",
+      "subtitle": "Activity portal organizer",
+      "period": "",
+      "body": "A website where users discover activities, apply for them and stay engaged with the ones they join.",
+      "tags": [
+        "Web app",
+        "Full-stack"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 2,
+      "category": "Research",
+      "title": "Monster brand study",
+      "subtitle": "Market research",
+      "period": "",
+      "body": "A study of consumer preferences and trends across Monster-branded products: energy drinks, gaming peripherals and entertainment media.",
+      "tags": [
+        "Consumer trends",
+        "Research"
+      ],
+      "links": [],
+      "groups": [],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 3,
+      "category": "Toolkit",
+      "title": "Skills",
+      "subtitle": "Front end, back end and languages",
+      "period": "",
+      "body": "",
+      "tags": [],
+      "links": [],
+      "groups": [
+        {
+          "heading": "Front end",
+          "items": [
+            "HTML",
+            "CSS",
+            "Tailwind",
+            "JavaScript",
+            "TypeScript",
+            "React.js",
+            "Three.js",
+            "WebGL"
+          ]
+        },
+        {
+          "heading": "Back end",
+          "items": [
+            "Node.js",
+            "Express.js",
+            "PHP",
+            "Laravel",
+            "RESTful APIs",
+            "MongoDB",
+            "MySQL"
+          ]
+        },
+        {
+          "heading": "Languages",
+          "items": [
+            "C",
+            "C++",
+            "C#",
+            "Java",
+            "SQL",
+            "Python",
+            ".NET"
+          ]
+        }
+      ],
+      "list": [],
+      "contact": null
+    },
+    {
+      "section": 3,
+      "category": "Certificates",
+      "title": "Certificates",
+      "subtitle": "Networks, security and the web",
+      "period": "",
+      "body": "",
+      "tags": [],
+      "links": [],
+      "groups": [],
+      "list": [
+        "CCNA: Switching, Routing and Wireless Essentials",
+        "CCNA: Introduction to Networks",
+        "ISO/IEC 27001: Information Security Management",
+        "Web Development Bootcamp, Dr. Angela Yu (2023)",
+        "Codepact Bootcamp: React and Node.js",
+        "AI-assisted coding program, AUB"
+      ],
+      "contact": null
+    },
+    {
+      "section": 4,
+      "category": "Contact",
+      "title": "Let’s build",
+      "subtitle": "Open to full-stack roles and projects",
+      "period": "",
+      "body": "References available upon request.",
+      "tags": [],
+      "links": [
+        "LinkedIn",
+        "GitHub",
+        "Portfolio"
+      ],
+      "groups": [],
+      "list": [],
+      "contact": {
+        "email": "taswad50@gmail.com",
+        "phone": "+961 70 629 775"
+      }
+    }
+  ]
+}

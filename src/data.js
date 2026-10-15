@@ -1,44 +1,13 @@
-export const DATA = [
-  {kind:"Driver", title:"Tarek Aswad", subtitle:"Full-stack developer", period:"Saidoun, Lebanon",
-   body:"I build and launch responsive web and mobile apps, from the API and database to the screen in your hand.",
-   tags:["React","Node.js","Laravel","Flutter","Three.js"]},
-  {kind:"Profile", title:"What I build", subtitle:"Web and mobile, end to end",
-   body:"Responsive web and mobile applications built with React, Node.js, Laravel and Flutter, with strong skills in API integration, database management and scalable application development.",
-   tags:["API integration","Databases","Responsive UI","Cross-platform"]},
-  {kind:"Experience", title:"ZinGlow S.A.L", subtitle:"Full-stack developer", period:"02/2026 – Present",
-   body:"Developing and launching websites, management systems and mobile applications, covering API integration, database management, responsive design and cross-platform development.",
-   tags:["Node.js","React","Flutter"]},
-  {kind:"Experience", title:"IDS", subtitle:"Laravel intern", period:"2024 · Beirut",
-   body:"Developed web applications with the Laravel PHP framework.",
-   tags:["Laravel","PHP"]},
-  {kind:"Education", title:"Rafik Hariri University", subtitle:"B.Sc. in Computer Science", period:"09/2021 – 06/2024 · Mechref",
-   body:"Bachelor of Science in Computer Science.",
-   tags:["Computer Science"]},
-  {kind:"Project", title:"Vendoor", subtitle:"White-label commerce SaaS",
-   body:"A white-label commerce platform that lets businesses launch their own branded mobile apps, dashboards and POS solutions.",
-   tags:["SaaS","Mobile apps","Dashboards","POS"]},
-  {kind:"Project", title:"Moodify", subtitle:"Captions from emotion",
-   body:"Users upload an image and receive automated captions and hashtags based on the emotional content of the picture.",
-   tags:["Web platform","Image analysis"]},
-  {kind:"Project", title:"DFA Visualizer", subtitle:"Minimizer and equivalence checker",
-   body:"Minimizes deterministic finite automata, checks whether two automata are equivalent and visualizes the result.",
-   tags:["Algorithms","Automata","Visualization"]},
-  {kind:"Project", title:"Activity Portal", subtitle:"Activity portal organizer",
-   body:"A website where users discover activities, apply for them and stay engaged with the ones they join.",
-   tags:["Web app","Full-stack"]},
-  {kind:"Research", title:"Monster brand study", subtitle:"Market research",
-   body:"A study of consumer preferences and trends across Monster-branded products: energy drinks, gaming peripherals and entertainment media.",
-   tags:["Consumer trends","Research"]},
-  {kind:"Toolkit", title:"Skills", subtitle:"Front end, back end and languages",
-   groups:[["Front end",["HTML","CSS","Tailwind","JavaScript","TypeScript","React.js","Three.js","WebGL"]],
-           ["Back end",["Node.js","Express.js","PHP","Laravel","RESTful APIs","MongoDB","MySQL"]],
-           ["Languages",["C","C++","C#","Java","SQL","Python",".NET"]]]},
-  {kind:"Certificates", title:"Certificates", subtitle:"Networks, security and the web",
-   list:["CCNA: Switching, Routing and Wireless Essentials","CCNA: Introduction to Networks","ISO/IEC 27001: Information Security Management","Web Development Bootcamp, Dr. Angela Yu (2023)","Codepact Bootcamp: React and Node.js","AI-assisted coding program, AUB"]},
-  {kind:"Contact", title:"Let’s build", subtitle:"Open to full-stack roles and projects",
-   contact:{email:"taswad50@gmail.com", phone:"+961 70 629 775"}, links:["LinkedIn","GitHub","Portfolio"],
-   body:"References available upon request."}
-];
-export const KIND = {Driver:"#dfe8ff",Profile:"#a9c6ff",Experience:"#ffb15e",Education:"#8fd6c0",Project:"#a9c6ff",Research:"#8fd6c0",Toolkit:"#ffb15e",Certificates:"#8fd6c0",Contact:"#ffb15e"};
+/* The CV content lives in the database (content/portfolio.db) and is edited at /admin while `npm run dev` runs.
+   It reaches the site through `virtual:content` (server/content-plugin.js), baked in at build time. */
+import content from "virtual:content";
+
+export const DATA = content.DATA;
+export const KIND = content.KIND;
+export const SECTIONS = content.SECTIONS;
+export const SITE = content.SITE;
 export const N = DATA.length;
 export const pad = n => String(n).padStart(2,"0");
+
+// the scene is built once from this content, so applying changes from /admin reloads the page
+if (import.meta.hot) import.meta.hot.on("content:changed", () => location.reload());

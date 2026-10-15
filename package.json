@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "admin": "vite --open /admin/",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -16,5 +17,8 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

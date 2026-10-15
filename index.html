@@ -8,7 +8,13 @@
     <link rel="icon" href="data:," />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <!-- fonts load without blocking first paint; the engine waits for them before painting the billboards -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
+    <!-- the car model and its Draco decoder are only requested once three.js has downloaded; start them now -->
+    <link rel="preload" as="fetch" href="/models/ferrari-lite.glb" crossorigin />
+    <link rel="preload" as="fetch" href="/draco/draco_decoder.wasm" crossorigin />
+    <link rel="preload" as="fetch" href="/draco/draco_wasm_wrapper.js" crossorigin />
   </head>
   <body>
     <div id="root"></div>

@@ -58,6 +58,9 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
 .rail.dim{opacity:0;pointer-events:none}
 .rail h2{font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);margin:0 0 12px}
 .rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+/* long CVs: the list scrolls inside its own box (the current stop is kept in view) instead of running off the screen */
+.rail ol{max-height:min(46vh,calc(100vh - 380px));min-height:120px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(190,205,240,.25) transparent;padding-right:6px}
+.rail ol.scrolls{-webkit-mask-image:linear-gradient(#000 85%,transparent);mask-image:linear-gradient(#000 85%,transparent)}
 .rail button{display:grid;grid-template-columns:28px 1fr;align-items:baseline;gap:6px;width:100%;text-align:left;padding:5px 0;color:rgba(238,241,248,.48);font-size:13px;transition:color .3s}
 .rail button:hover{color:var(--ink)}
 .rail button .mono{font-size:11px}
