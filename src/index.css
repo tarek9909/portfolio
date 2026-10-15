@@ -48,7 +48,7 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
 .hero.off{opacity:0;transform:translateY(16px);pointer-events:none}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
 .hero h1{font-family:var(--display);font-weight:700;font-size:clamp(40px,7.4vw,104px);line-height:.92;letter-spacing:-.025em;margin:14px 0 16px;text-wrap:balance}
-.hero p{color:#c9d0de;font-size:clamp(15px,1.4vw,18px);line-height:1.55;max-width:46ch;margin:0}
+.hero p{color:#c9d0de;font-size:clamp(15px,1.4vw,18px);line-height:1.55;max-width:46ch;margin:0;text-shadow:0 1px 14px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.6)}
 .cue{margin-top:26px;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .cue i{display:block;width:54px;height:1px;background:var(--line);position:relative;overflow:hidden}
 .cue i::after{content:"";position:absolute;inset:0;background:var(--amber);transform:translateX(-100%);animation:cue 2.2s var(--ease) infinite}
@@ -202,7 +202,6 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
   .pedals button{width:58px;height:58px;border:1px solid var(--line);background:rgba(5,7,12,.82);font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink);touch-action:none;user-select:none;-webkit-user-select:none}
   .pedals button:active{border-color:var(--amber);color:var(--amber)}
   .pedals .gas{height:76px;border-color:rgba(255,177,94,.5)}
-  .card{bottom:calc(env(safe-area-inset-bottom,0px) + 140px)}
 }
 .seclabel{position:absolute;top:-6px;transform:translate(-8px,-100%);font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:rgba(238,241,248,.38);white-space:nowrap;pointer-events:none;transition:color .4s}
 .seclabel::before{content:"";position:absolute;left:8px;top:100%;width:1px;height:8px;background:var(--line)}
@@ -241,11 +240,36 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offs
   .tbtn .qlbl{display:none}
   .tbtns{gap:4px}.tbtn{padding:9px 9px;letter-spacing:.1em}
   .hero{bottom:auto;top:18vh}
-  .card{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:none;max-height:40vh;padding:16px;animation:cardUp .6s var(--ease) both}
-  @keyframes cardUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
   .card h3{font-size:21px;margin-top:10px}
+  .app.intro .minimap{opacity:0}   /* the intro needs the space for the hero, not a map */
   .hud{gap:12px}
   .hint .txt{display:none}
   .gnum{font-size:17px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+
+/* Responsive layout
+   Tall screens (phones, upright tablets, narrow windows): the camera centres the billboard
+   (see "portrait" in the engine), so the card drops to the bottom, centred, clear of the HUD. */
+@keyframes cardUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@media (max-aspect-ratio:9/10),(max-width:760px){
+  .card{top:auto;left:0;right:0;margin:0 auto;width:min(560px,calc(100vw - 32px));bottom:calc(env(safe-area-inset-bottom,0px) + 76px);transform:none;max-height:36vh;padding:16px 18px;animation:cardUp .6s var(--ease) both}
+}
+/* ...and above the on-screen pedals on touch screens */
+@media (hover:none) and (pointer:coarse) and (max-aspect-ratio:9/10),(hover:none) and (pointer:coarse) and (max-width:760px){
+  .card{bottom:calc(env(safe-area-inset-bottom,0px) + 152px)}
+}
+/* Touch tablets: the stop list would sit under the steering buttons; the Catalogue button covers it */
+@media (hover:none) and (pointer:coarse){.rail{display:none}}
+/* Phones on their side: little height, so a compact hero, a shorter card on the right and smaller pedals */
+@media (max-height:520px) and (orientation:landscape){
+  .hero{top:calc(env(safe-area-inset-top,0px) + 60px);bottom:auto;max-width:62vw}
+  .hero h1{font-size:clamp(30px,10vh,52px);margin:8px 0 10px}
+  .hero p{font-size:13px;line-height:1.45;max-width:60ch}
+  .hero .cue{display:none}
+  .card{top:calc(env(safe-area-inset-top,0px) + 60px);bottom:auto;transform:none;width:min(340px,44vw);max-height:calc(100% - 60px - 130px);padding:14px 16px;animation:cardUp .6s var(--ease) both}
+  .card h3{font-size:19px;margin-top:8px}
+  .pedals{bottom:calc(env(safe-area-inset-bottom,0px) + 58px)}
+  .pedals button{width:46px;height:46px}
+  .pedals .gas{height:58px}
+}

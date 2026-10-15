@@ -1214,7 +1214,7 @@ export function createEngine(host, onState, onProgress, onReady, opts={}){
     vA.fromArray(A.p).lerp(vB.fromArray(B.p),b).lerp(vC.fromArray(DRIVE_CAM.p),manualW).multiplyScalar(k); vA.y/=k; vA.y*=portrait?1.25:1;
     const desired=tmp.copy(vA).applyAxisAngle(UP,-camYaw).add(car.position);
     vA.fromArray(A.l).lerp(vB.fromArray(B.l),b).lerp(vC.fromArray(DRIVE_CAM.l),manualW);
-    if(portrait) vA.x-=4.5*(1-manualW);   // on phones the card sits low, so centre the board instead
+    if(portrait){ vA.x-=4.5*(1-manualW); vA.y-=1.4*(1-manualW); }   // tall screens: the card sits low, so centre the board and lift it clear
     vA.applyAxisAngle(UP,-camYaw);
     const look=vB.copy(car.position).add(vA);
     // inside a U-turn zone, rise to the outside of the bend and frame the set piece with the car still in shot
