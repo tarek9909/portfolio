@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "admin": "vite --open /admin/",
+    "seed-admin": "node server/seed-admin.js",
     "build": "vite build",
     "preview": "vite preview"
   },

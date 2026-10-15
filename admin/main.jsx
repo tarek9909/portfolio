@@ -348,7 +348,67 @@ function Site({ c, setC, issues }) {
 
 /* ---------- app ---------- */
 
-function Admin() {
+/* ---------- sign in ---------- */
+
+const Brand = () => <div className="brand"><span className="mark">ND</span><div><b>Night Drive</b><span>Content admin</span></div></div>;
+
+/** Shown until there is a session, and again if it expires (unsaved edits stay in memory meanwhile). */
+function Login({ onIn, expired }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(expired ? "Your session expired. Sign in again; your unsaved changes are still here." : "");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || r.statusText);
+      onIn(d.email);
+    } catch (err) {
+      setError(err.message);
+      setPassword("");
+    } finally { setBusy(false); }
+  };
+  return (
+    <main className="login">
+      <form className="login-card" onSubmit={submit}>
+        <Brand />
+        <h1>Sign in</h1>
+        <p className="muted small">Edit the CV that drives the site.</p>
+        {error && <p className="status err" role="alert">{error}</p>}
+        <Field label="Email">
+          <input type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Field>
+        <Field label="Password">
+          <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        <button type="submit" className="primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+      </form>
+    </main>
+  );
+}
+
+/** undefined while checking, null when signed out, otherwise the signed-in email. */
+function Gate() {
+  const [user, setUser] = useState(undefined);
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    fetch("/api/session").then((r) => r.json()).then((d) => setUser(d.email || null)).catch(() => setUser(null));
+  }, []);
+  const out = (why) => { setExpired(why === "expired"); setUser(null); };
+  if (user === undefined) return <div className="admin"><header className="bar"><Brand /><div className="state">Loading…</div></header></div>;
+  return (
+    <>
+      {/* Admin stays mounted when a session expires, so edits survive signing back in */}
+      {user === null && <Login onIn={setUser} expired={expired} />}
+      {(user || expired) && <div hidden={!user}><Admin user={user} onOut={out} /></div>}
+    </>
+  );
+}
+
+function Admin({ user, onOut }) {
   const [saved, setSaved] = useState(null);   // what the database holds
   const [c, setC] = useState(null);           // what's on screen
   const [tab, setTab] = useState(() => { try { return localStorage.getItem("nd.admin.tab") || "entries"; } catch { return "entries"; } });
@@ -358,8 +418,8 @@ function Admin() {
   const applyRef = useRef(null);
 
   useEffect(() => {
-    fetch("/api/content").then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
-      .then((d) => { setSaved(d); setC(d); setSel(d.entries[0]?.id ?? null); })
+    fetch("/api/content").then((r) => (r.status === 401 ? (onOut(), null) : r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then((d) => { if (d) { setSaved(d); setC(d); setSel(d.entries[0]?.id ?? null); } })
       .catch((e) => setStatus({ kind: "err", msg: "Couldn't load the content: " + e.message + ". Is `npm run dev` running?" }));
   }, []);
   useEffect(() => { try { localStorage.setItem("nd.admin.tab", tab); } catch {} }, [tab]);
@@ -373,6 +433,7 @@ function Admin() {
     setBusy(true);
     try {
       const r = await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(c) });
+      if (r.status === 401) { setStatus({ kind: "", msg: "" }); onOut("expired"); return; }
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || (d.errors || []).map((x) => x.msg).join(" "));
       setSaved(d.content); setC(d.content);
@@ -397,7 +458,7 @@ function Admin() {
   return (
     <div className="admin">
       <header className="bar">
-        <div className="brand"><span className="mark">ND</span><div><b>Night Drive</b><span>Content admin</span></div></div>
+        <Brand />
         <div className="state" role="status">
           {!c ? "Loading…" : dirty ? <span className="pill dirty">Unsaved changes</span> : <span className="pill clean">Up to date with the site</span>}
           {c && issues.errors.length > 0 && <span className="pill err">{issues.errors.length} to fix</span>}
@@ -406,6 +467,11 @@ function Admin() {
           <a className="ghost" href="/" target="_blank" rel="noopener">Open site ↗</a>
           <button type="button" className="ghost" disabled={!dirty || busy} onClick={() => { setC(saved); setStatus({ kind: "", msg: "" }); }}>Discard changes</button>
           <button type="button" className="primary" disabled={!dirty || busy} onClick={apply} title="Ctrl+S">{busy ? "Applying…" : "Apply to site"}</button>
+          <button type="button" className="ghost" title={user ? "Signed in as " + user : ""} onClick={async () => {
+            if (dirty && !confirm("Sign out and lose your unsaved changes?")) return;
+            await fetch("/api/logout", { method: "POST" }).catch(() => {});
+            onOut();
+          }}>Sign out</button>
         </div>
       </header>
       {status.msg && <p className={"status " + status.kind}>{status.msg}</p>}
@@ -432,4 +498,4 @@ function Admin() {
   );
 }
 
-createRoot(document.getElementById("admin")).render(<Admin />);
+createRoot(document.getElementById("admin")).render(<Gate />);
